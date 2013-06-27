@@ -16,6 +16,7 @@ var ctx3 = c3.getContext("2d");
 
 var img1loaded = false;
 var img2loaded = false;
+var diff_algo = 'invsquare_dark';
 
 function drawDiffImage() {
     var i, n;
@@ -26,26 +27,56 @@ function drawDiffImage() {
     var data3 = imageData.data;
 
     for (i = 0, n = data1.length; i < n; i += 4) {
-        var color2 = data1[i];
-        var color1 = data2[i];
+        var x = (i % (c1.width*4))/4
+        var y = i / (c1.width*4);
 
-        // A couple algorithms for how to color grayscale changes
-        
-        // Simple linear scale, 1 unit gray change = 1 unit green/red change
-        /* var bkgnd = 0xFF - Math.abs(color1 - color2); */
-
-        // Inverse square root - emphasizes small changes
-        // at the cost of lumping together bigger changes
-        var bkgnd = 0xFF * (1 - Math.sqrt(Math.abs(color1 - color2)/0xFF));
-
-        data3[i]     = color1 == color2 ? color1 : (color1 < color2 ? color2 : bkgnd * (color2/0xFF) );
-        data3[i + 1] = color1 == color2 ? color1 : (color1 > color2 ? color1 : bkgnd * (color1/0xFF) );
-        data3[i + 2] = color1 == color2 ? color1 : bkgnd * (color1/0xFF);
-        data3[i + 3] = 0xFF;
+        //diffpx = getDiff(diff_algo, (x/c1.width)*0xFF, (y/c1.height)*0xFF);
+        diffpx = getDiff(diff_algo, data2[i], data1[i]);
+        for(j=0; j < 4; j++) {
+            data3[i+j] = Math.floor(diffpx[j]);
+        }
     }
 
     ctx3.putImageData(imageData, 0, 0);
     finishedLoading();
+}
+
+function getDiff(algo, color1, color2) {
+    var bkgnd = 0x00, scale = 1.0, diff_color_val = 0xFF;
+    var retpx = [];
+    var maxval = Math.max(color1, color2);
+    switch(algo) {
+        case 'linear_dark': //linear, color
+            scale = 1;
+            bkgnd = 0xFF - Math.abs(color1 - color2);
+            diff_color_val = 0xFF;
+            break;
+        case 'linear':
+            scale = maxval / 0xFF;
+            bkgnd = 0xFF - Math.abs(color1 - color2);
+            diff_color_val = 0xFF;
+            break;
+        case 'invsquare_dark':
+            scale = maxval / 0xFF;
+            bkgnd = 0xFF * (1 - Math.sqrt(Math.abs(color1 - color2)/0xFF));
+            diff_color_val = maxval;
+            break;
+        case 'invsquare':
+            scale = 1;
+            bkgnd = 0xFF * (1 - Math.sqrt(Math.abs(color1 - color2)/0xFF));
+            diff_color_val = 0xFF;
+            break;
+        case 'mono': //original
+        default:
+            break;
+    }
+
+    retpx[0] = color1 == color2 ? color1 : (color1 < color2 ? diff_color_val : bkgnd * scale );
+    retpx[1] = color1 == color2 ? color1 : (color1 > color2 ? diff_color_val : bkgnd * scale );
+    retpx[2] = color1 == color2 ? color1 : bkgnd * scale;
+    retpx[3] = 0xFF;
+
+    return retpx;
 }
 
 
